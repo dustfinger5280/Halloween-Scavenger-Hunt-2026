@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>Field Orders</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Special+Elite&family=Stardos+Stencil:wght@700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ground: #5b6143;
+    --paper: #e9dfc4;
+    --ink: #2a2a22;
+    --stamp: #a3302a;
+    --star: #27406b;
+    --good: #35542b;
+    --edge: rgba(42, 42, 34, .28);
+    color-scheme: light dark;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground: #23261a;
+      --paper: #cfc6aa;
+      --ink: #1f1f19;
+      --stamp: #9c2f29;
+      --star: #27406b;
+      --good: #35542b;
+      --edge: rgba(0, 0, 0, .4);
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; }
+
+  body {
+    background:
+      radial-gradient(ellipse at 50% 0%, rgba(255,255,255,.08), transparent 60%),
+      var(--ground);
+    color: var(--ink);
+    font-family: "Special Elite", "Courier New", monospace;
+    font-size: 1.0625rem;
+    line-height: 1.6;
+    padding: max(20px, env(safe-area-inset-top)) 16px max(28px, env(safe-area-inset-bottom));
+    display: flex;
+    justify-content: center;
+  }
+
+  .dispatch {
+    width: 100%;
+    max-width: 30rem;
+    background: var(--paper);
+    padding: 28px 22px 26px;
+    border-radius: 2px;
+    box-shadow: 0 1px 0 var(--edge), 0 14px 30px rgba(0,0,0,.35);
+    position: relative;
+    align-self: flex-start;
+  }
+  .dispatch::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 6px;
+    background: repeating-linear-gradient(90deg, var(--paper) 0 7px, transparent 7px 10px);
+    transform: translateY(-5px);
+  }
+
+  .stamp {
+    font-family: "Stardos Stencil", "Impact", sans-serif;
+    font-weight: 700;
+    font-size: 1.5rem;
+    letter-spacing: .04em;
+    color: var(--stamp);
+    border: 3px solid var(--stamp);
+    display: inline-block;
+    padding: 2px 12px 0;
+    transform: rotate(-3deg);
+    margin: 0 0 8px;
+    opacity: .9;
+  }
+  .squad {
+    margin: 0 0 18px;
+    font-size: .9rem;
+    opacity: .75;
+    min-height: 1.4em;
+    overflow-wrap: anywhere;
+  }
+
+  .orders p { margin: 0 0 1.05em; max-width: 34em; }
+  .orders .lede { font-size: 1.15rem; }
+
+  /* ---------- form ---------- */
+  .enlist { margin-top: 24px; display: grid; gap: 10px; }
+  .enlist label { font-size: .95rem; }
+  .enlist input {
+    font: inherit;
+    font-size: 1.15rem;
+    width: 100%;
+    min-height: 56px;
+    padding: 10px 14px;
+    color: var(--ink);
+    background: #f6f0dc;
+    border: 3px solid var(--ink);
+    border-radius: 0;
+  }
+  .enlist input:focus-visible { outline: 3px solid var(--star); outline-offset: 3px; }
+  .enlist .err { margin: 0; color: var(--stamp); font-size: .9rem; min-height: 1.3em; }
+
+  /* ---------- buttons ---------- */
+  .choices { display: grid; gap: 12px; margin-top: 26px; }
+  .choices[hidden], .outcome[hidden], .roll-row[hidden], .next[hidden] { display: none; }
+
+  .choice {
+    font-family: "Stardos Stencil", "Impact", sans-serif;
+    font-weight: 700;
+    font-size: 1.4rem;
+    letter-spacing: .03em;
+    text-align: left;
+    width: 100%;
+    min-height: 64px;
+    padding: 12px 18px;
+    border: 3px solid var(--ink);
+    background: transparent;
+    color: var(--ink);
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform .08s ease, background-color .12s ease, color .12s ease;
+  }
+  .choice small {
+    font-family: "Special Elite", monospace;
+    font-weight: 400;
+    font-size: .85rem;
+    opacity: .75;
+    white-space: nowrap;
+  }
+  .choice.push, .choice.go { border-color: var(--stamp); color: var(--stamp); }
+  .choice.push:active, .choice.go:active { background: var(--stamp); color: var(--paper); transform: scale(.985); }
+  .choice.wait:active { background: var(--ink); color: var(--paper); transform: scale(.985); }
+  .choice:focus-visible { outline: 3px solid var(--star); outline-offset: 3px; }
+
+  /* ---------- outcome ---------- */
+  .outcome { margin-top: 26px; border-top: 2px dashed var(--edge); padding-top: 22px; }
+  .roll-row { display: flex; align-items: center; gap: 18px; margin-bottom: 18px; }
+
+  .die {
+    width: 76px; height: 76px; flex: none;
+    background: #f6f0dc;
+    border: 3px solid var(--ink);
+    border-radius: 14px;
+    padding: 10px;
+    display: grid;
+    grid-template: repeat(3, 1fr) / repeat(3, 1fr);
+    box-shadow: 3px 4px 0 var(--edge);
+  }
+  .die i { border-radius: 50%; background: transparent; }
+  .die i.on { background: var(--ink); }
+  .die.rolling { animation: tumble .32s linear infinite; }
+  @keyframes tumble {
+    0%   { transform: rotate(-8deg) translateY(0); }
+    50%  { transform: rotate(10deg) translateY(-6px); }
+    100% { transform: rotate(-8deg) translateY(0); }
+  }
+  .roll-caption { margin: 0; }
+
+  .verdict {
+    font-family: "Stardos Stencil", "Impact", sans-serif;
+    font-weight: 700;
+    font-size: 3rem;
+    line-height: 1;
+    margin: 0 0 8px;
+  }
+  .verdict.gain { color: var(--good); }
+  .verdict.loss { color: var(--stamp); }
+  .verdict-text { margin: 0; max-width: 30em; }
+
+  .next { margin-top: 24px; }
+  .note { margin: 14px 0 0; font-size: .85rem; opacity: .7; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .die.rolling { animation: none; }
+    .choice { transition: none; }
+  }
+</style>
+</head>
+<body>
+  <main class="dispatch">
+    <div class="stamp" id="stamp" aria-hidden="true"></div>
+    <p class="squad" id="squad"></p>
+    <div id="view"></div>
+  </main>
+
+<script>
+(function () {
+  "use strict";
+
+  /* =====================================================================
+     SETTINGS
+     ===================================================================== */
+
+  // Paste your Google Apps Script web app URL here (see setup steps).
+  // Leave empty to test the site without recording anything.
+  var LOG_URL = "";
+
+  var DIE_SIDES = 6;                       // standard die
+  var STORE_KEY = "hydra-hunt-v1";
+
+  var INTRO = {
+    paragraphs: [
+      "Listen up. You’ve done well so far, and I don’t make these calls on my own anymore. We're dug in outside a Hydra stronghold, and every push forward is going to cost us, men, supplies, and time.",
+      "First, I need to know which squad I'm working with."
+    ]
+  };
+
+  // Each decision: costs, rewards, and thresholds are all editable here.
+  var DECISIONS = [
+    {
+      id: "d1",
+      stamp: "Decision point 1",
+      paragraphs: [
+        "Here's our first decision point. Pushing forward now will cost us 5 points, but if we roll a 3 or higher, we’ll get 15 points.",
+        "Our soldiers are getting hungry, so waiting for a better opening will still cost 1 point, and we have no chance of gaining points."
+      ],
+      pushLabel: "Push forward", waitLabel: "Wait",
+      pushCost: 5, needed: 3, win: 15, waitCost: 1,
+      winText: "The push lands. Hydra’s line breaks and the stronghold is yours.",
+      loseText: "Hydra held the line. We pulled back with what we could carry.",
+      waitText: "You hold position and let the troops eat. The opening never comes, but the squad lives to fight on."
+    },
+    {
+      id: "d2",
+      stamp: "Decision point 2",
+      paragraphs: [
+        "Scouts just spotted a Hydra supply convoy winding through the valley below us. It's lightly guarded, but not for long.",
+        "Hitting it now will cost us 4 points in lost gear, but if we roll a 4 or higher, we’ll seize the cargo and get 12 points.",
+        "Letting it pass will cost us 2 points in lost ground, and we have no chance of gaining points."
+      ],
+      pushLabel: "Hit the convoy", waitLabel: "Let it pass",
+      pushCost: 4, needed: 4, win: 12, waitCost: 2,
+      winText: "The ambush is clean. Hydra's trucks are ours, and so is everything inside them.",
+      loseText: "They saw us coming. The convoy ran the gauntlet and we're left picking up our own wreckage.",
+      waitText: "The convoy rolls on. You stay hidden and keep the squad intact, but the opportunity is gone."
+    },
+    {
+      id: "d3",
+      stamp: "Decision point 3",
+      paragraphs: [
+        "This is it. Intel puts a Hydra research lab just over the ridge, and whatever they're building in there, we can't let them finish it.",
+        "Storming the lab will cost us 6 points, but if we roll a 5 or higher, we’ll shut it down and get 25 points.",
+        "Falling back to regroup will cost us 3 points, and we have no chance of gaining points."
+      ],
+      pushLabel: "Storm the lab", waitLabel: "Fall back",
+      pushCost: 6, needed: 5, win: 25, waitCost: 3,
+      winText: "The doors come down. The lab is destroyed and Hydra's work goes up with it.",
+      loseText: "The lab's defenses were too strong. We got out, but not without heavy losses.",
+      waitText: "You pull back to regroup. The squad is safe, and Hydra's lab is still humming."
+    }
+  ];
+
+  var FINAL = {
+    stamp: "Orders complete",
+    paragraphs: [
+      "That’s the last of the orders. Good work out there.",
+      "Report back to command with your squad name, and they’ll tally what you’ve earned."
+    ]
+  };
+
+  /* =====================================================================
+     STATE (saved on the player's phone so refreshing can't reroll)
+     ===================================================================== */
+
+  function uid() {
+    return Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+  }
+
+  function loadState() {
+    try {
+      var s = JSON.parse(localStorage.getItem(STORE_KEY));
+      if (s && s.deviceId) return s;
+    } catch (e) {}
+    return { deviceId: uid(), team: null, results: {}, queue: [] };
+  }
+  function saveState() {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (e) {}
+  }
+
+  // Host reset: add ?reset to the URL
+  if (/[?&]reset\b/.test(location.search)) {
+    try { localStorage.removeItem(STORE_KEY); } catch (e) {}
+    history.replaceState(null, "", location.pathname);
+  }
+
+  var state = loadState();
+
+  /* =====================================================================
+     LOGGING TO GOOGLE SHEETS (via Apps Script)
+     Events are queued locally and retried, so bad cell signal is fine.
+     ===================================================================== */
+
+  function record(evt) {
+    evt.team = state.team;
+    evt.deviceId = state.deviceId;
+    evt.ts = new Date().toISOString();
+    state.queue.push(evt);
+    saveState();
+    flush();
+  }
+
+  var flushing = false;
+  function flush() {
+    if (!LOG_URL || flushing || !state.queue.length) return;
+    flushing = true;
+    var evt = state.queue[0];
+    fetch(LOG_URL, {
+      method: "POST",
+      mode: "no-cors",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(evt),
+      keepalive: true
+    }).then(function () {
+      state.queue.shift();
+      saveState();
+      flushing = false;
+      flush();
+    }).catch(function () {
+      flushing = false;   // offline; will retry later
+    });
+  }
+  window.addEventListener("online", flush);
+  setInterval(flush, 15000);
+
+  /* =====================================================================
+     DICE
+     ===================================================================== */
+
+  var PIPS = { 1:[4], 2:[0,8], 3:[0,4,8], 4:[0,2,6,8], 5:[0,2,4,6,8], 6:[0,2,3,5,6,8] };
+
+  function drawDie(die, n) {
+    die.innerHTML = "";
+    for (var i = 0; i < 9; i++) {
+      var dot = document.createElement("i");
+      if (PIPS[n] && PIPS[n].indexOf(i) !== -1) dot.className = "on";
+      die.appendChild(dot);
+    }
+  }
+
+  /* =====================================================================
+     RENDERING
+     ===================================================================== */
+
+  var view  = document.getElementById("view");
+  var stamp = document.getElementById("stamp");
+  var squad = document.getElementById("squad");
+
+  function h(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = text;
+    return n;
+  }
+
+  function fmt(points) { return (points > 0 ? "+" : "−") + Math.abs(points); }
+
+  function orders(paragraphs) {
+    var s = h("section", "orders");
+    paragraphs.forEach(function (t, i) { s.appendChild(h("p", i === 0 ? "lede" : "", t)); });
+    return s;
+  }
+
+  function setChrome(stampText) {
+    stamp.textContent = stampText;
+    squad.textContent = state.team ? "Squad: " + state.team : "";
+  }
+
+  function go(route) {
+    if (location.hash === "#" + route) render();
+    else location.hash = route;
+  }
+
+  function firstOpenRoute() {
+    for (var i = 0; i < DECISIONS.length; i++) {
+      if (!state.results[DECISIONS[i].id]) return DECISIONS[i].id;
+    }
+    return "done";
+  }
+
+  /* ---------- intro ---------- */
+  function renderIntro() {
+    setChrome("Field orders");
+    view.innerHTML = "";
+    view.appendChild(orders(INTRO.paragraphs));
+
+    var form = h("form", "enlist");
+    form.setAttribute("novalidate", "");
+    var label = h("label", "", "Squad name");
+    label.setAttribute("for", "teamName");
+    var input = document.createElement("input");
+    input.id = "teamName";
+    input.type = "text";
+    input.maxLength = 40;
+    input.autocomplete = "off";
+    input.autocapitalize = "words";
+    input.spellcheck = false;
+    var err = h("p", "err");
+    err.setAttribute("aria-live", "polite");
+    var btn = h("button", "choice go", "Report in");
+    btn.type = "submit";
+
+    form.appendChild(label);
+    form.appendChild(input);
+    form.appendChild(err);
+    form.appendChild(btn);
+    view.appendChild(form);
+
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      var name = input.value.replace(/\s+/g, " ").trim();
+      if (!name) { err.textContent = "Give me a squad name so I know who's on the line."; input.focus(); return; }
+      state.team = name;
+      saveState();
+      record({ event: "join", decision: "", choice: "", roll: "", outcome: "", points: "", eventId: state.deviceId + ":join" });
+      go("d1");
+    });
+  }
+
+  /* ---------- decision ---------- */
+  function renderDecision(index) {
+    var dec = DECISIONS[index];
+    setChrome(dec.stamp);
+    view.innerHTML = "";
+    view.appendChild(orders(dec.paragraphs));
+
+    var choices = h("div", "choices");
+    var pushBtn = h("button", "choice push");
+    pushBtn.type = "button";
+    pushBtn.appendChild(document.createTextNode(dec.pushLabel + " "));
+    pushBtn.appendChild(h("small", "", fmt(-dec.pushCost) + " / " + fmt(dec.win)));
+    var waitBtn = h("button", "choice wait");
+    waitBtn.type = "button";
+    waitBtn.appendChild(document.createTextNode(dec.waitLabel + " "));
+    waitBtn.appendChild(h("small", "", fmt(-dec.waitCost)));
+    choices.appendChild(pushBtn);
+    choices.appendChild(waitBtn);
+
+    var outcome = h("section", "outcome");
+    outcome.hidden = true;
+    outcome.setAttribute("aria-live", "polite");
+    var rollRow = h("div", "roll-row");
+    var die = h("div", "die");
+    die.setAttribute("aria-hidden", "true");
+    var caption = h("p", "roll-caption");
+    rollRow.appendChild(die);
+    rollRow.appendChild(caption);
+    var verdict = h("p", "verdict");
+    var verdictText = h("p", "verdict-text");
+    var next = h("div", "next");
+    next.hidden = true;
+    var isLast = index === DECISIONS.length - 1;
+    var nextBtn = h("button", "choice go", isLast ? "Finish" : "Next orders");
+    nextBtn.type = "button";
+    nextBtn.addEventListener("click", function () {
+      go(isLast ? "done" : DECISIONS[index + 1].id);
+    });
+    next.appendChild(nextBtn);
+    next.appendChild(h("p", "note", "Write down your points before you move on."));
+
+    outcome.appendChild(rollRow);
+    outcome.appendChild(verdict);
+    outcome.appendChild(verdictText);
+    outcome.appendChild(next);
+
+    view.appendChild(choices);
+    view.appendChild(outcome);
+
+    function show(r) {
+      choices.hidden = true;
+      outcome.hidden = false;
+      next.hidden = false;
+      if (r.choice === "wait") {
+        rollRow.hidden = true;
+        verdict.textContent = fmt(r.points);
+        verdict.className = "verdict loss";
+        verdictText.textContent = dec.waitText;
+        return;
+      }
+      rollRow.hidden = false;
+      drawDie(die, r.roll);
+      caption.textContent = "You rolled a " + r.roll + ".";
+      var won = r.outcome === "success";
+      verdict.textContent = fmt(r.points);
+      verdict.className = "verdict " + (won ? "gain" : "loss");
+      verdictText.textContent = won ? dec.winText : dec.loseText;
+    }
+
+    // Already decided on this one? Show the saved result.
+    if (state.results[dec.id]) { show(state.results[dec.id]); return; }
+
+    function lock(r) {
+      state.results[dec.id] = r;     // saved before the animation so a refresh can't reroll
+      saveState();
+      record({
+        event: "decision", decision: dec.id, choice: r.choice,
+        roll: r.roll == null ? "" : r.roll, outcome: r.outcome, points: r.points,
+        eventId: state.deviceId + ":" + dec.id
+      });
+    }
+
+    waitBtn.addEventListener("click", function () {
+      var r = { choice: "wait", roll: null, outcome: "waited", points: -dec.waitCost };
+      lock(r);
+      show(r);
+    });
+
+    pushBtn.addEventListener("click", function () {
+      var roll = Math.floor(Math.random() * DIE_SIDES) + 1;
+      var won = roll >= dec.needed;
+      var r = { choice: "push", roll: roll, outcome: won ? "success" : "failure", points: won ? dec.win : -dec.pushCost };
+      lock(r);
+
+      choices.hidden = true;
+      outcome.hidden = false;
+      next.hidden = true;
+      rollRow.hidden = false;
+      verdict.textContent = "";
+      verdictText.textContent = "";
+      caption.textContent = "Rolling…";
+      die.classList.add("rolling");
+
+      var ticks = 0;
+      var timer = setInterval(function () {
+        drawDie(die, Math.floor(Math.random() * DIE_SIDES) + 1);
+        if (++ticks >= 14) {
+          clearInterval(timer);
+          die.classList.remove("rolling");
+          show(r);
+        }
+      }, 90);
+    });
+  }
+
+  /* ---------- finish ---------- */
+  function renderDone() {
+    setChrome(FINAL.stamp);
+    view.innerHTML = "";
+    view.appendChild(orders(FINAL.paragraphs));
+  }
+
+  /* ---------- router ---------- */
+  function render() {
+    var route = location.hash.replace("#", "");
+
+    if (!state.team) { renderIntro(); return; }
+
+    // Rescanning the QR with no hash? Pick up where they left off.
+    if (!route || route === "intro") { go(firstOpenRoute()); return; }
+
+    if (route === "done") { renderDone(); return; }
+
+    for (var i = 0; i < DECISIONS.length; i++) {
+      if (DECISIONS[i].id === route) { renderDecision(i); window.scrollTo(0, 0); return; }
+    }
+    go(firstOpenRoute());
+  }
+
+  window.addEventListener("hashchange", render);
+  render();
+  flush();
+})();
+</script>
+</body>
+</html>
