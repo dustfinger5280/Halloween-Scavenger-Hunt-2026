@@ -265,7 +265,7 @@
     stamp: "Orders complete",
     paragraphs: [
       "That’s the last of the orders. Good work out there.",
-      "Report back to command with your squad name, and they’ll tally what you’ve earned."
+      "Tony told me he was having trouble with his tech. I'm not sure if you've got an engineering brain like his, but I vouched for your spirit and combat IQ. He says he left his tech for you to take a look at in the south-most cabinet on the first floor of HQ."
     ]
   };
 
@@ -466,7 +466,7 @@
       go(isLast ? "done" : DECISIONS[index + 1].id);
     });
     next.appendChild(nextBtn);
-    next.appendChild(h("p", "note", "Write down your points before you move on."));
+    next.appendChild(h("p", "note", ""));
 
     outcome.appendChild(rollRow);
     outcome.appendChild(verdict);
